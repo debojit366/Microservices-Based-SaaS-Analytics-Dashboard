@@ -1,0 +1,73 @@
+services:
+  # 1. Database: MongoDB
+  mongo:
+    image: mongo:latest
+    container_name: analytics_mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - analytics_network
+
+  # 2. Message Broker: RabbitMQ (With Management UI)
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: analytics_rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"   # RabbitMQ broker port
+      - "15672:15672" # RabbitMQ Management Dashboard port
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - analytics_network
+
+  # 3. Caching & Rate Limiting: Redis
+  redis:
+    image: redis:alpine
+    container_name: analytics_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - analytics_network
+
+  # 4. Ingestion Microservice
+  ingestion-service:
+    build: ./ingestion-service    
+    container_name: ingestion_service
+    restart: always
+    ports:
+      - "5001:5001"               
+    environment:
+      - PORT=5001
+      - RABBITMQ_URL=amqp://rabbitmq:5672  
+    depends_on:
+      - rabbitmq                  
+    networks:
+      - analytics_network
+
+  # 5. Report/Worker Microservice
+  report-service:
+    build: ./report-service
+    container_name: report_service
+    restart: always
+    environment:
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - MONGO_URI=mongodb://mongo:27017/analytics_db 
+    depends_on:
+      - rabbitmq
+      - mongo
+    networks:
+      - analytics_network
+
+volumes:
+  mongo_data: {} 
+
+# Internal Network for Microservices Communication
+networks:
+  analytics_network:
+    driver: bridge
