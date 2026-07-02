@@ -1,14 +1,57 @@
+import crypto from 'crypto';
+globalThis.crypto = crypto;
+
+import express from 'express';
+import cors from 'cors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import { connectRabbitMQ } from './config/rabbitmq.js';
-import { connectRedis } from './config/redis.js'; // <-- Redis connection client
+import { connectRedis } from './config/redis.js';
 import redisClient from './config/redis.js';
 import Event from './models/Event.js';
-import crypto from 'crypto';
-globalThis.crypto = crypto;
+
 dotenv.config();
 
+const app = express();
+const PORT = process.env.PORT || 5002;
+
+app.use(express.json());
+app.use(cors());
+
 const QUEUE_NAME = 'analytics_events';
+
+app.get('/api/v1/reports/recent', async (req, res) => {
+    try {
+        const cacheKey = 'reports:recent';
+
+        // 1. Check Redis Cache
+        const cachedData = await redisClient.get(cacheKey);
+        if (cachedData) {
+            console.log('🎯 [Cache Hit] Serving data to frontend from Redis!');
+            return res.status(200).json({
+                success: true,
+                source: 'cache',
+                data: JSON.parse(cachedData)
+            });
+        }
+
+        // 2. Cache Miss -> Fetch from MongoDB
+        console.log('⏱️ [Cache Miss] Fetching fresh data for frontend from MongoDB...');
+        const reports = await Event.find().sort({ timestamp: -1 }).limit(50);
+
+        // 3. Save to Redis for 5 mins
+        await redisClient.setEx(cacheKey, 300, JSON.stringify(reports));
+
+        return res.status(200).json({
+            success: true,
+            source: 'database',
+            data: reports
+        });
+    } catch (error) {
+        console.error('❌ [API Error]:', error.message);
+        return res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+});
 
 async function startWorker() {
     try {
@@ -16,7 +59,6 @@ async function startWorker() {
         await connectRedis();
 
         const { channel } = await connectRabbitMQ();
-        
         await channel.assertQueue(QUEUE_NAME, { durable: true });
         channel.prefetch(1);
         
@@ -44,8 +86,13 @@ async function startWorker() {
             }
         });
 
+        // Start Express Server
+        app.listen(PORT, () => {
+            console.log(`📡 [Report Service API] Server running on port ${PORT}`);
+        });
+
     } catch (error) {
-        console.error('⚠️ [System Alert] Core dependencies failed. Retrying worker startup in 5s...', error.message);
+        console.error('⚠️ [System Alert] Core dependencies failed. Retrying in 5s...', error.message);
         setTimeout(startWorker, 5000);
     }
 }
