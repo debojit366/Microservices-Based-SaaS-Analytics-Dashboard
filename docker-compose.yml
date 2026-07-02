@@ -58,9 +58,11 @@ services:
     environment:
       - RABBITMQ_URL=amqp://rabbitmq:5672
       - MONGO_URI=mongodb://mongo:27017/analytics_db 
+      - REDIS_URL=redis://redis:6379
     depends_on:
       - rabbitmq
       - mongo
+      - redis
     networks:
       - analytics_network
 
