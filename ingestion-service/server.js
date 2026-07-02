@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectRabbitMQ } from './config/rabbitmq.js';
+import { connectRedis } from './config/redis.js'; // <-- Import redis connector
 import analyticsRoutes from './routes/analytics.js';
 
 dotenv.config();
@@ -20,11 +21,17 @@ app.use((err, req, res, next) => {
 });
 
 const startServer = async () => {
-    await connectRabbitMQ();
+    try {
+        await connectRedis();   
+        await connectRabbitMQ(); 
 
-    app.listen(PORT, () => {
-        console.log(`📡 [Ingestion Service] Live and listening on port ${PORT}`);
-    });
+        app.listen(PORT, () => {
+            console.log(`Live and listening on port ${PORT}`);
+        });
+    } catch (error) {
+        console.error('❌ Failed to start the server:', error.message);
+        process.exit(1);
+    }
 };
 
 startServer();
