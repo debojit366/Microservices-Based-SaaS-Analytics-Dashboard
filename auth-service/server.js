@@ -4,10 +4,13 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import { connectDB } from './config/db.js';
 import { connectRedis } from './config/redis.js';
+import cookieParser from 'cookie-parser';
+
 
 dotenv.config();
 
 const app = express();
+app.use(cookieParser());
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
