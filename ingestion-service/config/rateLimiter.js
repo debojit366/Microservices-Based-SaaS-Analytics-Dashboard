@@ -4,14 +4,19 @@ import redisClient from './redis.js';
 
 export const apiRateLimiter = rateLimit({
     store: new RedisStore({
-        sendCommand: (...args) => redisClient.sendCommand(args),
+        sendCommand: async (...args) => {
+            if (!redisClient.isOpen) {
+                await redisClient.connect();
+            }
+            return redisClient.sendCommand(args);
+        },
     }),
-    windowMs: 1 * 60 * 1000, // 1 minute  window
+    windowMs: 1 * 60 * 1000,
     max: 10,
     message: {
         success: false,
         error: 'Too many requests, Please try again after a minute.'
     },
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    standardHeaders: true,
+    legacyHeaders: false,
 });

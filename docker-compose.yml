@@ -1,5 +1,4 @@
 services:
-  # 1. Database: MongoDB
   mongo:
     image: mongo:latest
     container_name: analytics_mongo
@@ -8,70 +7,93 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - analytics_network
 
-  # 2. Message Broker: RabbitMQ (With Management UI)
   rabbitmq:
     image: rabbitmq:3-management
     container_name: analytics_rabbitmq
     restart: always
     ports:
-      - "5672:5672"   # RabbitMQ broker port
-      - "15672:15672" # RabbitMQ Management Dashboard port
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - analytics_network
 
-  # 3. Caching & Rate Limiting: Redis
   redis:
     image: redis:alpine
     container_name: analytics_redis
     restart: always
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - analytics_network
 
-  # 4. Ingestion Microservice
   ingestion-service:
-    build: ./ingestion-service    
+    build: ./ingestion-service
     container_name: ingestion_service
     restart: always
     ports:
-      - "5001:5001"               
+      - "5001:5001"
+    volumes:
+      - ./ingestion-service:/usr/src/app
+      - /usr/src/app/node_modules
     environment:
       - PORT=5001
-      - RABBITMQ_URL=amqp://rabbitmq:5672  
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
     depends_on:
-      - rabbitmq                  
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - analytics_network
 
-  # 5. Report/Worker Microservice
   report-service:
     build: ./report-service
     container_name: report_service
     restart: always
     ports:
       - "5002:5002"
+    volumes:
+      - ./report-service:/usr/src/app
+      - /usr/src/app/node_modules
     environment:
       - RABBITMQ_URL=amqp://rabbitmq:5672
-      - MONGO_URI=mongodb://mongo:27017/analytics_db 
+      - MONGO_URI=mongodb://mongo:27017/analytics_db
       - REDIS_URL=redis://redis:6379
     depends_on:
-      - rabbitmq
-      - mongo
-      - redis
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - analytics_network
 
 volumes:
-  mongo_data: {} 
+  mongo_data: {}
 
-# Internal Network for Microservices Communication
 networks:
   analytics_network:
     driver: bridge
