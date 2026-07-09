@@ -9,7 +9,7 @@ import { connectRabbitMQ } from './config/rabbitmq.js';
 import { connectRedis } from './config/redis.js';
 import redisClient from './config/redis.js';
 import Event from './models/Event.js';
-
+import reportRoute from './routes/report.js'
 dotenv.config();
 
 const app = express();
@@ -20,39 +20,8 @@ app.use(cors());
 
 const QUEUE_NAME = 'analytics_events';
 
-app.get('/api/v1/reports/recent', async (req, res) => {
-    try {
-        const cacheKey = 'reports:recent';
-
-        // 1. Check Redis Cache
-        const cachedData = await redisClient.get(cacheKey);
-        if (cachedData) {
-            console.log('🎯 [Cache Hit] Serving data to frontend from Redis!');
-            return res.status(200).json({
-                success: true,
-                source: 'cache',
-                data: JSON.parse(cachedData)
-            });
-        }
-
-        // 2. Cache Miss -> Fetch from MongoDB
-        console.log('⏱️ [Cache Miss] Fetching fresh data for frontend from MongoDB...');
-        const reports = await Event.find().sort({ timestamp: -1 }).limit(50);
-
-        // 3. Save to Redis for 5 mins
-        await redisClient.setEx(cacheKey, 300, JSON.stringify(reports));
-
-        return res.status(200).json({
-            success: true,
-            source: 'database',
-            data: reports
-        });
-    } catch (error) {
-        console.error('❌ [API Error]:', error.message);
-        return res.status(500).json({ success: false, error: 'Internal Server Error' });
-    }
-});
-
+app.get('/api/v1/report',reportRoute)
+// testing
 async function startWorker() {
     try {
         await connectDB();
