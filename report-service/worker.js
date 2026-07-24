@@ -20,7 +20,7 @@ app.use(cors());
 
 const QUEUE_NAME = 'analytics_events';
 
-app.get('/api/v1/report',reportRoute)
+app.use('/api/v1/report',reportRoute)
 // testing
 async function startWorker() {
     try {

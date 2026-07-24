@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import User from '../models/User.js';
 import redisClient from '../config/redis.js';
 
@@ -27,27 +27,58 @@ const generateTokens = (userId) => {
 export const signup = async (req, res) => {
     try {
         const { email, password } = req.body;
+
         if (!email || !password) {
-            return res.status(400).json({ success: false, error: 'Email and password required' });
+            return res.status(400).json({
+                success: false,
+                error: "Email and password required"
+            });
         }
 
         const existingUser = await User.findOne({ email });
+
         if (existingUser) {
-            return res.status(400).json({ success: false, error: 'User already exists' });
+            return res.status(400).json({
+                success: false,
+                error: "User already exists"
+            });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const apiKey = 'sk_' + crypto.randomBytes(24).toString('hex');
+        const apiKey = "sk_" + crypto.randomBytes(24).toString("hex");
 
-        const user = new User({ email, password: hashedPassword, apiKey });
+        const user = new User({
+            email,
+            password: hashedPassword,
+            apiKey
+        });
+
+        const { accessToken, refreshToken } = generateTokens(user._id);
+
+        user.refreshToken = refreshToken;
+
         await user.save();
 
         await redisClient.set(`apikey:${apiKey}`, user._id.toString());
 
-        res.status(201).json({ success: true, message: 'Signup successful', apiKey });
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        res.status(201).json({
+            success: true,
+            accessToken,
+            apiKey
+        });
     } catch (err) {
-        console.error('❌ [Signup Error]:', err.message);
-        res.status(500).json({ success: false, error: 'Internal server error' });
+        console.error(err);
+        res.status(500).json({
+            success: false,
+            error: "Internal server error"
+        });
     }
 };
 

@@ -18,7 +18,7 @@ export default function Dashboard() {
   const fetchData = async () => {
     try {
       const response = await fetch(
-        "http://localhost:5002/api/v1/reports/recent"
+        "http://localhost:5002/api/v1/report/recent"
       );
 
       const json = await response.json();

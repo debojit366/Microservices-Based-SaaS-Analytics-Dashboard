@@ -25,7 +25,6 @@ export const connectRabbitMQ = async () => {
     }
 };
 
-// Pure project me channel data send karne ke liye ye helper function use hoga
 export const getChannel = () => {
     if (!channel) {
         throw new Error('❌ [Broker] RabbitMQ channel is not initialized yet!');

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Eye, EyeOff, Clipboard, Check, Loader2, KeyRound } from "lucide-react";
-
+import { useNavigate } from "react-router-dom";
 const API_BASE = "http://localhost:5003/api/auth";
 
 export default function AuthPage() {
@@ -12,7 +12,7 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
-
+  const navigate = useNavigate();
   const resetFormState = (newMode) => {
     setMode(newMode);
     setError("");
@@ -55,10 +55,17 @@ export default function AuthPage() {
         return;
       }
 
-      if (mode === "login") {
-        localStorage.setItem("accessToken", data.accessToken);
-        localStorage.setItem("apiKey", data.apiKey);
-      }
+      // if (mode === "login") {
+      //   localStorage.setItem("accessToken", data.accessToken);
+      //   localStorage.setItem("apiKey", data.apiKey);
+      // }
+      localStorage.setItem("accessToken", data.accessToken);
+      localStorage.setItem("apiKey", data.apiKey);
+      console.log(localStorage.getItem("accessToken"));
+      setResult(data);
+
+      // 500ms baad dashboard pe redirect
+      navigate("/dashboard", { replace: true });
 
       setResult(data);
     } catch {
