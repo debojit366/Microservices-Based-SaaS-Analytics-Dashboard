@@ -5,7 +5,14 @@ import {
   Activity,
   Layers,
   Database,
+  Clipboard,
+  Check,
+  Eye,
+  EyeOff,
+  KeyRound,
+  LogOut,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import StatCard from "../components/StatCard";
 import AnalyticsChart from "../components/AnalyticsChart";
@@ -14,6 +21,12 @@ export default function Dashboard() {
   const [events, setEvents] = useState([]);
   const [source, setSource] = useState("fetching...");
   const [loading, setLoading] = useState(true);
+
+  // API Key state
+  const [apiKey, setApiKey] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+  const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
@@ -35,12 +48,34 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    const key = localStorage.getItem("apiKey");
+    if (key) {
+      setApiKey(key);
+    }
+
     fetchData();
 
     const interval = setInterval(fetchData, 5000);
 
     return () => clearInterval(interval);
   }, []);
+
+  const handleCopy = async () => {
+    if (!apiKey) return;
+    try {
+      await navigator.clipboard.writeText(apiKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("apiKey");
+    navigate("/");
+  };
 
   const totalEvents = events.length;
   const uniqueUsers = new Set(events.map((e) => e.userId)).size;
@@ -56,7 +91,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
       {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8 flex justify-between items-center">
+      <div className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
             Analytics Dashboard
@@ -67,20 +102,59 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div
-          className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold shadow-sm ${
-            source === "cache"
-              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-              : "bg-amber-50 text-amber-700 border-amber-200"
-          }`}
-        >
-          {source === "cache" ? (
-            <Layers className="w-4 h-4 animate-pulse" />
-          ) : (
-            <Database className="w-4 h-4" />
-          )}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Compact API Key Widget */}
+          <div className="flex items-center gap-2 bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-sm text-xs">
+            <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="font-mono text-gray-600 max-w-[120px] truncate">
+              {apiKey
+                ? showKey
+                  ? apiKey
+                  : "••••••••••••"
+                : "No Key"}
+            </span>
+            {apiKey && (
+              <button
+                onClick={() => setShowKey(!showKey)}
+                className="text-gray-400 hover:text-gray-600 p-0.5"
+                title={showKey ? "Hide" : "Show"}
+              >
+                {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            )}
+            <button
+              onClick={handleCopy}
+              disabled={!apiKey}
+              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 p-1 rounded-md transition"
+              title="Copy API Key"
+            >
+              {copied ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+            </button>
+          </div>
 
-          Data Source: {source.toUpperCase()}
+          <div
+            className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold shadow-sm ${
+              source === "cache"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-amber-50 text-amber-700 border-amber-200"
+            }`}
+          >
+            {source === "cache" ? (
+              <Layers className="w-4 h-4 animate-pulse" />
+            ) : (
+              <Database className="w-4 h-4" />
+            )}
+
+            Data Source: {source.toUpperCase()}
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm transition font-medium shadow-sm"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </button>
         </div>
       </div>
 
