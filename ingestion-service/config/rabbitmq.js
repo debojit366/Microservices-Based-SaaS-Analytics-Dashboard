@@ -20,14 +20,14 @@ export const connectRabbitMQ = async () => {
     } catch (error) {
         console.error('❌ [Broker] RabbitMQ Connection Error:', error.message);
         // Retry mechanism
-        console.log('🔄 Retrying RabbitMQ connection in 5 seconds...');
+        console.log('Retrying RabbitMQ connection in 5 seconds...');
         setTimeout(connectRabbitMQ, 5000);
     }
 };
 
 export const getChannel = () => {
     if (!channel) {
-        throw new Error('❌ [Broker] RabbitMQ channel is not initialized yet!');
+        throw new Error('[Broker] RabbitMQ channel is not initialized yet!');
     }
     return channel;
 };

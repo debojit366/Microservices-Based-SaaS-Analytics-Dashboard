@@ -58,8 +58,14 @@ export const signup = async (req, res) => {
         user.refreshToken = refreshToken;
 
         await user.save();
+        const cacheData = {
+            userId: user._id.toString()
+        }
 
-        await redisClient.set(`apikey:${apiKey}`, user._id.toString());
+        await redisClient.set(
+            `apikey:${apiKey}`,
+            JSON.stringify(cacheData)
+        );
 
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
@@ -96,7 +102,14 @@ export const login = async (req, res) => {
         user.refreshToken = refreshToken;
         await user.save();
 
-        await redisClient.set(`apikey:${user.apiKey}`, user._id.toString());
+        const cacheData = {
+            userId: user._id.toString()
+        }
+
+        await redisClient.set(
+            `apikey:${user.apiKey}`,
+            JSON.stringify(cacheData)
+        );
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,

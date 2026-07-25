@@ -46,6 +46,23 @@ services:
       retries: 5
     networks:
       - analytics_network
+    
+
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    restart: always
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight_data:/data
+    depends_on:
+      - redis
+    networks:
+      - analytics_network
+
+
 
   ingestion-service:
     build: ./ingestion-service
@@ -118,7 +135,9 @@ services:
 
 volumes:
   mongo_data: {}
+  redisinsight_data: {}
 
+  
 networks:
   analytics_network:
     driver: bridge

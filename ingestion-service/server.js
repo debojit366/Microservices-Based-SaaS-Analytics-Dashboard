@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectRabbitMQ } from './config/rabbitmq.js';
+import { connectDB } from './config/db.js';
 import { connectRedis } from './config/redis.js'; // <-- Import redis connector
 import analyticsRoutes from './routes/analytics.js';
 
@@ -24,7 +25,7 @@ const startServer = async () => {
     try {
         await connectRedis();   
         await connectRabbitMQ(); 
-
+        await connectDB();
         app.listen(PORT, () => {
             console.log(`Live and listening on port ${PORT}`);
         });
