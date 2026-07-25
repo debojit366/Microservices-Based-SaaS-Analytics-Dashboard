@@ -46,8 +46,6 @@ services:
       retries: 5
     networks:
       - analytics_network
-    
-
 
   redisinsight:
     image: redis/redisinsight:latest
@@ -61,8 +59,6 @@ services:
       - redis
     networks:
       - analytics_network
-
-
 
   ingestion-service:
     build: ./ingestion-service
@@ -84,7 +80,6 @@ services:
         condition: service_healthy
     networks:
       - analytics_network
-
 
   auth-service:
     build: ./auth-service
@@ -108,18 +103,17 @@ services:
     networks:
       - analytics_network
 
-
-      
-  report-service:
-    build: ./report-service
-    container_name: report_service
+  analytics-service:
+    build: ./analytics-service
+    container_name: analytics_service
     restart: always
     ports:
       - "5002:5002"
     volumes:
-      - ./report-service:/usr/src/app
+      - ./analytics-service:/usr/src/app
       - /usr/src/app/node_modules
     environment:
+      - PORT=5002
       - RABBITMQ_URL=amqp://rabbitmq:5672
       - MONGO_URI=mongodb://mongo:27017/analytics_db
       - REDIS_URL=redis://redis:6379
@@ -137,7 +131,6 @@ volumes:
   mongo_data: {}
   redisinsight_data: {}
 
-  
 networks:
   analytics_network:
     driver: bridge

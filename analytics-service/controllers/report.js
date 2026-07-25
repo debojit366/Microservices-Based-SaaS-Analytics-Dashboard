@@ -1,5 +1,5 @@
 import redisClient from '../config/redis.js';
-import Event from '../models/Event.js';
+import Event from '../models/Analytics.js';
 
 export const getRecentReports = async (req, res) => {
     try {
