@@ -3,6 +3,7 @@ import {
   BarChart3,
   Users,
   Activity,
+  UserPlus,
   Layers,
   Database,
   Clipboard,
@@ -18,9 +19,17 @@ import StatCard from "../components/StatCard";
 import AnalyticsChart from "../components/AnalyticsChart";
 
 export default function Dashboard() {
-  const [events, setEvents] = useState([]);
+  const [reportData, setReportData] = useState(null);
   const [source, setSource] = useState("fetching...");
   const [loading, setLoading] = useState(true);
+
+  // Date range filters (Default: past 7 days)
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
 
   // API Key state
   const [apiKey, setApiKey] = useState("");
@@ -30,18 +39,19 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
+      
       const response = await fetch(
-        "http://localhost:5002/api/v1/report/recent"
+        `http://localhost:5004/api/v1/reports?startDate=${startDate}&endDate=${endDate}`
       );
 
       const json = await response.json();
 
       if (json.success) {
-        setEvents(json.data);
-        setSource(json.source);
+        setReportData(json.data);
+        setSource(json.source || "DB"); 
       }
     } catch (error) {
-      console.error("Error fetching analytics:", error);
+      console.error("Error fetching analytics report:", error);
     } finally {
       setLoading(false);
     }
@@ -55,10 +65,11 @@ export default function Dashboard() {
 
     fetchData();
 
+    
     const interval = setInterval(fetchData, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [startDate, endDate]);
 
   const handleCopy = async () => {
     if (!apiKey) return;
@@ -77,16 +88,18 @@ export default function Dashboard() {
     navigate("/");
   };
 
-  const totalEvents = events.length;
-  const uniqueUsers = new Set(events.map((e) => e.userId)).size;
-
-  if (loading) {
+  if (loading && !reportData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       </div>
     );
   }
+
+  
+  const summary = reportData?.summary || {};
+  const charts = reportData?.charts || {};
+  const recentEvents = reportData?.recentEvents || [];
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
@@ -96,13 +109,29 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
             Analytics Dashboard
           </h1>
-
           <p className="text-gray-500 mt-1">
             Real-time metrics from Distributed Microservices Pipeline
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Date Picker Controls */}
+          <div className="flex items-center gap-2 bg-white border border-gray-200 px-3 py-1.5 rounded-full text-xs shadow-sm">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-transparent border-none text-gray-600 focus:outline-none"
+            />
+            <span className="text-gray-400">to</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-transparent border-none text-gray-600 focus:outline-none"
+            />
+          </div>
+
           {/* Compact API Key Widget */}
           <div className="flex items-center gap-2 bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-sm text-xs">
             <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
@@ -144,7 +173,6 @@ export default function Dashboard() {
             ) : (
               <Database className="w-4 h-4" />
             )}
-
             Data Source: {source.toUpperCase()}
           </div>
 
@@ -159,62 +187,76 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Stat Cards mapped with Summary Data */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
-            title="Total Event Logs"
-            value={totalEvents}
+            title="Total Events (All Time)"
+            value={summary.totalEvents || 0}
             icon={Activity}
             color="bg-indigo-600"
           />
 
           <StatCard
-            title="Unique Users"
-            value={uniqueUsers}
+            title="Events Today"
+            value={summary.eventsToday || 0}
+            icon={BarChart3}
+            color="bg-violet-500"
+          />
+
+          <StatCard
+            title="Active Users Today"
+            value={summary.usersToday || 0}
             icon={Users}
             color="bg-sky-500"
           />
 
           <StatCard
-            title="Throughput (window)"
-            value={`${totalEvents} / 50`}
-            icon={BarChart3}
-            color="bg-violet-500"
+            title="New Users Today"
+            value={summary.newUsersToday || 0}
+            icon={UserPlus}
+            color="bg-emerald-500"
           />
         </div>
 
         {/* Chart + Feed */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            <AnalyticsChart data={events} />
+            {/* Range data charts prop mapping */}
+            <AnalyticsChart chartData={charts} />
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-[400px] flex flex-col">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-[450px] flex flex-col">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              Live Event Stream
+              Recent Activity Feed
             </h3>
 
             <div className="overflow-y-auto flex-1 space-y-3 pr-2 scrollbar-thin">
-              {events.slice(0, 10).map((event, idx) => (
-                <div
-                  key={event._index || idx}
-                  className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-xs flex justify-between items-start"
-                >
-                  <div>
-                    <span className="font-bold text-indigo-600 uppercase">
-                      {event.eventType}
+              {recentEvents.length === 0 ? (
+                <p className="text-gray-400 text-sm">No recent events</p>
+              ) : (
+                recentEvents.slice(0, 15).map((event, idx) => (
+                  <div
+                    key={event._id || idx}
+                    className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-xs flex justify-between items-start"
+                  >
+                    <div>
+                      <span className="font-bold text-indigo-600 uppercase">
+                        {event.eventType || event.name || "EVENT"}
+                      </span>
+
+                      <p className="text-gray-500 mt-0.5">
+                        User: {event.userId || "N/A"}
+                      </p>
+                    </div>
+
+                    <span className="text-gray-400 text-[10px]">
+                      {event.createdAt
+                        ? new Date(event.createdAt).toLocaleTimeString()
+                        : "N/A"}
                     </span>
-
-                    <p className="text-gray-500 mt-0.5">
-                      User: {event.userId}
-                    </p>
                   </div>
-
-                  <span className="text-gray-400 text-[10px]">
-                    {new Date(event.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>

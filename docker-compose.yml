@@ -126,6 +126,30 @@ services:
         condition: service_healthy
     networks:
       - analytics_network
+    
+
+  
+  report-service:
+    build: ./report-service
+    container_name: report_service
+    restart: always
+    ports:
+      - "5004:5004"
+    volumes:
+      - ./report-service:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      - PORT=5004
+      - MONGO_URI=mongodb://mongo:27017/analytics_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - analytics_network
+
 
 volumes:
   mongo_data: {}
