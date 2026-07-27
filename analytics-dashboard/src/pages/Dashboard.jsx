@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import {
   BarChart3,
   Users,
@@ -39,19 +40,31 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      
-      const response = await fetch(
-        `http://localhost:5004/api/v1/reports?startDate=${startDate}&endDate=${endDate}`
-      );
+      // Axios GET Request with query params
+      const token = localStorage.getItem("accessToken");
+      const response = await axios.get("http://localhost:5004/api/v1/reports", {
+      params: {
+        startDate,
+        endDate,
+      },
+      headers: {
+        // Headers me Authorization token pass karo
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+    });
 
-      const json = await response.json();
+      // Axios automatically parses JSON response into response.data
+      const json = response.data;
 
       if (json.success) {
         setReportData(json.data);
-        setSource(json.source || "DB"); 
+        setSource(json.source || "DB");
       }
     } catch (error) {
-      console.error("Error fetching analytics report:", error);
+      console.error(
+        "Error fetching analytics report:",
+        error.response?.data || error.message
+      );
     } finally {
       setLoading(false);
     }
@@ -65,7 +78,6 @@ export default function Dashboard() {
 
     fetchData();
 
-    
     const interval = setInterval(fetchData, 5000);
 
     return () => clearInterval(interval);
@@ -96,10 +108,10 @@ export default function Dashboard() {
     );
   }
 
-  
   const summary = reportData?.summary || {};
   const charts = reportData?.charts || {};
   const recentEvents = reportData?.recentEvents || [];
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">

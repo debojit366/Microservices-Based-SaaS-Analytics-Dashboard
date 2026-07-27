@@ -1,7 +1,7 @@
 import amqp from 'amqplib';
 import Event from '../models/Event.js';
 import DailyAggregation from '../models/DailyAggregation.js';
-
+import redisClient from '../config/redis.js';
 
 async function startConsumer() {
   const QUEUE_NAME = process.env.QUEUE_NAME;
@@ -28,10 +28,25 @@ async function startConsumer() {
 
       const eventDate = timestamp ? new Date(timestamp) : new Date();
 
-      await Promise.all([
+      const [newEvent] = await Promise.all([
         Event.create({ userId, eventType, metadata, createdAt: eventDate }),
         DailyAggregation.incrementForEvent(eventType, userId, eventDate),
       ]);
+
+      const cacheKey = `user:${userId}:recent_events`;
+      const cacheExists = await redisClient.exists(cacheKey);
+
+      if (cacheExists) {
+        const pipeline = redisClient.multi();
+
+        pipeline.lPush(cacheKey, JSON.stringify(newEvent));
+
+        pipeline.lTrim(cacheKey, 0, 99);
+
+        pipeline.expire(cacheKey, 86400);
+
+        await pipeline.exec();
+      }
 
       channel.ack(msg);
     } catch (err) {
