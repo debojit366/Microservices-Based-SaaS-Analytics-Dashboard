@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+// ❌ Step 1: axios import ko hatayein ya Apne Custom Interceptor API instance ko import karein:
+import API from "../api/axios.js"; // Apne file structure ke hisaab se path adjust karein
+
 import {
   BarChart3,
   Users,
@@ -40,20 +42,15 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      // Axios GET Request with query params
-      const token = localStorage.getItem("accessToken");
-      const response = await axios.get("http://localhost:5004/api/v1/reports", {
-      params: {
-        startDate,
-        endDate,
-      },
-      headers: {
-        // Headers me Authorization token pass karo
-        Authorization: token ? `Bearer ${token}` : "",
-      },
-    });
+      // ✅ Step 2: Custom API Instance use karein
+      // Interceptor token automatic header me add karega aur expire hone par /refresh call karke retry karega
+      const response = await API.get("/reports", {
+        params: {
+          startDate,
+          endDate,
+        },
+      });
 
-      // Axios automatically parses JSON response into response.data
       const json = response.data;
 
       if (json.success) {
@@ -76,10 +73,13 @@ export default function Dashboard() {
       setApiKey(key);
     }
 
+    // Initial fetch
     fetchData();
 
+    // 5 Second Polling
     const interval = setInterval(fetchData, 5000);
 
+    // Cleanup interval on unmount or dependency change
     return () => clearInterval(interval);
   }, [startDate, endDate]);
 
@@ -111,7 +111,6 @@ export default function Dashboard() {
   const summary = reportData?.summary || {};
   const charts = reportData?.charts || {};
   const recentEvents = reportData?.recentEvents || [];
-
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
@@ -233,7 +232,6 @@ export default function Dashboard() {
         {/* Chart + Feed */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            {/* Range data charts prop mapping */}
             <AnalyticsChart chartData={charts} />
           </div>
 
